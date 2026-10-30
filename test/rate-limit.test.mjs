@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
@@ -36,7 +36,14 @@ async function fixture(t, options = {}) {
   const admin = token();
   const relay = createRelay({ dataDir, uploadToken: admin, publicURL: 'http://127.0.0.1:8787', allowHTTPLocalhost: true, ...options });
   relay.server.listen(0, '127.0.0.1'); await once(relay.server, 'listening');
-  t.after(async () => { await new Promise(r => relay.server.close(r)); rmSync(dataDir, { recursive: true, force: true }); });
+  t.after(async () => {
+    await new Promise(r => relay.server.close(r));
+    // Socket close can precede the download handler's final audit/fsync work.
+    // Match the server's lock lifecycle before removing its temporary storage.
+    for (let n = 0; n < 100 && existsSync(join(dataDir, '.lock')); n++) await new Promise(r => setTimeout(r, 10));
+    assert.equal(existsSync(join(dataDir, '.lock')), false);
+    rmSync(dataDir, { recursive: true, force: true });
+  });
   const origin = `http://127.0.0.1:${relay.server.address().port}`;
   const request = async (path, options) => {
     const response = await fetch(origin + path, options);

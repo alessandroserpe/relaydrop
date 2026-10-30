@@ -93,3 +93,22 @@ Browser reale con dati fittizi: accesso senza chiave del file precedente, regist
 
 
 Il 30 ottobre 2026 anche la VPS Node 24 ha superato tutti i 45 test. Dopo l’aggiornamento HTTPS, l’utente ha aperto la casella sull’iPhone e aggiornato il Mac: ha confermato che i file precedenti sono ora scaricabili. Il caso reale include due registrazioni Mac successive agli upload. Il server ha abilitato le opzioni di conservazione su richiesta, mantenendo la durata massima configurata di 24 ore per le date scelte; l’admin può aumentarla. I file senza scadenza sono esenti da quel limite temporale.
+
+
+## 0.6.1 — limiti isolati e installazione riproducibile
+
+La suite comprende 49 test. I quattro nuovi controlli verificano isolamento fra identità e classi di traffico, tetti di emergenza, rinnovo della finestra, memoria limitata e resistenza agli header di forwarding falsificati. La riproduzione RD-01 satura 120 richieste anonime e verifica che credenziale, sessione e capability valide restino utilizzabili. La pulizia delle fixture attende il rilascio del lock anche sui sistemi dove la chiusura del socket precede il completamento del gestore del download.
+
+Il job `installation` di GitHub Actions usa un runner Linux temporaneo e:
+
+1. Installa il codice con dipendenze dal lockfile, un utente dedicato e l’unità systemd fornita, adattando solo percorsi/account/origine alla fixture.
+2. Valida Caddy e usa HTTPS con una CA locale isolata, senza disabilitare la verifica TLS né installare la CA nel sistema.
+3. Genera admin, personale, agente e VAPID; verifica permessi privati e separazione dei ruoli.
+4. Invia un file fittizio con la CLI e lo decifra con il modulo effettivo del browser; confronta il contenuto.
+5. Riavvia il servizio e verifica persistenza di sessione e file.
+6. Costruisce l’immagine Docker ed esegue `deploy/bootstrap-container.sh` in una directory senza `node_modules` sul computer host; verifica che una seconda esecuzione non sovrascriva la configurazione.
+7. Ripete trasferimento HTTPS e controllo del riavvio con il container, filesystem di root in sola lettura e mount persistenti.
+
+Lo script rifiuta di eseguire queste operazioni fuori da un runner Linux GitHub-hosted. I dati fittizi vengono rimossi; nessuna credenziale viene stampata. [Esiti CI](https://github.com/alessandroserpe/relaydrop/actions/workflows/test.yml).
+
+Questa prova non include DNS pubblico, emissione ACME o consegna reale APNs/FCM. Questi passaggi dipendono dall’installazione e dai dispositivi. Le prove fisiche iPhone precedenti restano riportate separatamente; Android non è dichiarato verificato.

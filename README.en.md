@@ -6,7 +6,7 @@
 
 Send a document from your Mac, a result from a VPS, or a photo from your phone. Retrieve it from your shared inbox on another network. Codex and other authorized agents can deliver files through the CLI; a Codex skill is included.
 
-**0.6.0 · self-hosted MVP · MIT license.** RelayDrop is a working name. The UI is currently Italian. This is intended for personal use and small trusted groups, not public anonymous uploads or a backup system. No independent security audit has been completed.
+**0.6.1 · self-hosted MVP · MIT license.** RelayDrop is a working name. The UI is currently Italian. This is intended for personal use and small trusted groups, not public anonymous uploads or a backup system. No independent security audit has been completed.
 
 ## Features
 
@@ -64,6 +64,8 @@ npm run check
 npm test
 ```
 
-45 automated tests passed on the development Mac and a Linux VPS with Node 24. Real iPhone tests confirmed cellular-network transfer, notifications with the app closed, opening/saving files, phone-photo transfer to Mac and delivery through the skill. The Node 22/24 Linux/macOS CI matrix reports its results in [GitHub Actions](https://github.com/alessandroserpe/relaydrop/actions/workflows/test.yml). Android, the new camera button, native drag-and-drop and large files on phones still need physical-device validation. See [validation notes](docs/VALIDATION.md).
+49 automated tests passed on the development Mac and a Linux VPS with Node 24. Real iPhone tests confirmed cellular-network transfer, notifications with the app closed, opening/saving files, phone-photo transfer to Mac and delivery through the skill. The Node 22/24 Linux/macOS CI matrix reports its results in [GitHub Actions](https://github.com/alessandroserpe/relaydrop/actions/workflows/test.yml). Android, the new camera button, native drag-and-drop and large files on phones still need physical-device validation. See [validation notes](docs/VALIDATION.md).
 
 [MIT license](LICENSE) · [Contributing](CONTRIBUTING.md) · [Architecture and alternatives](docs/ARCHITECTURE.md)
+
+Installation CI also exercises fresh systemd and Docker setups, verified HTTPS using an isolated local CA, encrypted transfer and session/file persistence after restart. Public ACME issuance and physical push delivery are separate deployment checks. See [validation details](docs/VALIDATION.md).

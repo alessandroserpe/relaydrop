@@ -1,6 +1,6 @@
 {
   "name": "relaydrop-mvp",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "description": "Encrypted file inbox with named access, local summaries and opt-in notifications",
   "license": "MIT",
