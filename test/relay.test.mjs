@@ -123,7 +123,7 @@ test('expiry prevents access before cleanup; cleanup and revocation remove files
   assert.deepEqual(readdirSync(app.dataDir).filter(n => n !== 'control.json'), ['.lock']);
 });
 
-test('size, storage, transfer count and global rate limits', async t => {
+test('size, storage, transfer count and public request limits', async t => {
   const app = await setup(t, { maxUploadBytes: 100, maxBytes: 150, maxTransfers: 1 });
   assert.equal((await app.upload({ body: Buffer.alloc(101) })).response.status, 413);
   const first = await app.upload({ body: Buffer.alloc(100) });

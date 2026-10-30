@@ -76,9 +76,9 @@ L’esito `download_transferred` indica che lo stream server è terminato: non �
 
 ## Errori
 
-JSON `{error: codice}` se ancora possibile rispondere. 400 input; 401 autenticazione; 403 autorizzazione/origine; 404 indisponibile; 405 metodo; 409 limite dispositivi; 411 lunghezza; 413 dimensione; 415 MIME; 429 rate limit (`Retry-After:60`); 503 capacità; 507 quota; 500 errore interno. Stream interrotti possono terminare senza corpo JSON.
+JSON `{error: codice}` se ancora possibile rispondere. 400 input; 401 autenticazione; 403 autorizzazione/origine; 404 indisponibile; 405 metodo; 409 limite dispositivi; 411 lunghezza; 413 dimensione; 415 MIME; 429 rate limit (`Retry-After` in secondi fino al rinnovo della finestra); 503 capacità; 507 quota; 500 errore interno. Stream interrotti possono terminare senza corpo JSON.
 
-`GET /healthz` controlla il processo HTTP, non lo spazio o la correttezza dei backup. Rate limiter globale incluse pagine, asset e health check.
+`GET /healthz` controlla il processo HTTP, non lo spazio o la correttezza dei backup. API autenticate: 120 richieste/minuto per identità (cookie e token condividono il limite). Link anonimi validi: budget per file. API anonime e pagine/asset/health check hanno budget separati per peer TCP. Ogni classe ha un tetto di emergenza separato di 6.000 richieste ammesse/minuto. Dietro un proxy gli anonimi condividono il suo peer; gli header di forwarding sono ignorati.
 
 ## Web Push
 

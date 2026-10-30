@@ -12,6 +12,7 @@ import { createControl, readJSON, readPrivateJSON, HARD_FILE_BYTES } from './con
 import { notifyRecipient } from './notifications.mjs';
 import { createWebPush } from './web-push.mjs';
 import { isExpired, isExhausted, deadline, uploadRetention } from './retention.mjs';
+import { createRequestLimiter } from './rate-limit.mjs';
 
 const ID = /^[A-Za-z0-9_-]{32}$/;
 const HASH = /^[a-f0-9]{64}$/;
@@ -22,10 +23,10 @@ const fail = (status, code) => Object.assign(new Error(code), { status });
 
 export function createRelay(options) {
   const config = { dataDir: './data', maxBytes: 1024 * 1024 * 1024, maxTransfers: 1000,
-    maxUploads: 4, maxStreams: 8, requestsPerMinute: 120,
+    maxUploads: 4, maxStreams: 8, requestsPerMinute: 120, emergencyRequestsPerMinute: 6000,
     cleanupMs: 60_000, now: Date.now, ...options };
   if (!/^[A-Za-z0-9_-]{43}$/.test(config.uploadToken || '')) throw new Error('Invalid upload token');
-  for (const field of ['maxBytes', 'maxTransfers', 'maxUploads', 'maxStreams', 'requestsPerMinute', 'cleanupMs']) {
+  for (const field of ['maxBytes', 'maxTransfers', 'maxUploads', 'maxStreams', 'requestsPerMinute', 'emergencyRequestsPerMinute', 'cleanupMs']) {
     positiveInt(config[field], undefined);
   }
   const origin = serverURL(config.publicURL, config.allowHTTPLocalhost);
@@ -107,7 +108,7 @@ export function createRelay(options) {
     ['/v1/push/icon-192.png', ['icon-192.png', 'image/png']],
     ['/v1/push/icon-512.png', ['icon-512.png', 'image/png']]
   ].map(([route, [name, type]]) => [route, { data: readFileSync(join(PUBLIC, name)), type }]));
-  let windowStart = config.now(), requests = 0;
+  const limitRequest = createRequestLimiter(config);
   const json = (res, status, body) => {
     res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(body));
   };
@@ -149,11 +150,29 @@ export function createRelay(options) {
     if (origin.startsWith('https:')) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
     res.setTimeout(300_000, () => res.destroy());
     try {
-      if (config.now() - windowStart >= 60_000) { windowStart = config.now(); requests = 0; }
-      if (++requests > config.requestsPerMinute) { res.setHeader('Retry-After', '60'); throw fail(429, 'rate_limited'); }
-      if (req.headers.origin && req.headers.origin !== origin) throw fail(403, 'origin_rejected');
-      if (req.headers['sec-fetch-site'] === 'cross-site' && req.url.startsWith('/v1/')) throw fail(403, 'origin_rejected');
       const route = req.url;
+      const publicPage = req.method === 'GET' && (route === '/healthz' || assets.has(route) || /^\/d\/[A-Za-z0-9_-]{32}$/.test(route));
+      let group = publicPage ? 'public' : 'anonymous', key = req.socket.remoteAddress || 'unknown', authError;
+      const rejectedOrigin = (req.headers.origin && req.headers.origin !== origin) ||
+        (req.headers['sec-fetch-site'] === 'cross-site' && route.startsWith('/v1/'));
+      if (!publicPage && !rejectedOrigin) {
+        let user;
+        try { user = control.identity(req); } catch (error) { authError = error; }
+        if (user) { group = 'authenticated'; key = 'user:' + user.id; }
+        else if (!authError && req.method === 'POST') {
+          const downloadId = /^\/v1\/transfers\/([A-Za-z0-9_-]{32})\/(?:download|preview)$/.exec(route)?.[1];
+          const record = downloadId && records.get(downloadId);
+          const secret = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(req.headers.authorization || '')?.[1];
+          if (record && !record.require_recipient && secret && equal(hash(secret), record.token_hash) &&
+              !isExpired(record, config.now()) && !isExhausted(record)) {
+            group = 'capability'; key = record.id;
+          }
+        }
+      }
+      const retryAfter = limitRequest(group, key);
+      if (retryAfter) { res.setHeader('Retry-After', String(retryAfter)); throw fail(429, 'rate_limited'); }
+      if (rejectedOrigin) throw fail(403, 'origin_rejected');
+      if (authError) throw authError;
       if (req.method === 'GET' && route === '/healthz') return json(res, 200, { ok: true });
       if (req.method === 'GET' && (assets.has(route) || /^\/d\/[A-Za-z0-9_-]{32}$/.test(route))) {
         const asset = assets.get(route) || assets.get('/receiver');
@@ -404,7 +423,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       dataDir: process.env.RELAYDROP_DATA_DIR || './data',
       maxBytes: positiveInt(process.env.RELAYDROP_MAX_STORAGE_BYTES, 1024 * 1024 * 1024),
       maxTransfers: positiveInt(process.env.RELAYDROP_MAX_TRANSFERS, 1000),
-      requestsPerMinute: positiveInt(process.env.RELAYDROP_REQUESTS_PER_MINUTE, 120) });
+      requestsPerMinute: positiveInt(process.env.RELAYDROP_REQUESTS_PER_MINUTE, 120),
+      emergencyRequestsPerMinute: positiveInt(process.env.RELAYDROP_EMERGENCY_REQUESTS_PER_MINUTE, 6000) });
     relay.server.listen(positiveInt(process.env.PORT, 8787, 65535), process.env.HOST || '127.0.0.1', () => console.log('RelayDrop listening'));
     for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {
       relay.server.close();

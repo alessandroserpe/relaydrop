@@ -68,7 +68,7 @@ Le copie salvate sul telefono o computer rimangono disponibili. Il registro atti
 | Login richiesto di nuovo | Controlla «Resta connesso», eventuale cancellazione cookie o uso di un browser/origine diversa. |
 | Sul telefono non funziona localhost | Serve l’origine HTTPS del relay, non l’indirizzo loopback del computer. |
 | HTTP 413 | Verifica il limite del proxy oltre a quello applicativo; il browser resta limitato a 100 MiB. |
-| HTTP 429 | Limite globale di richieste: attendi e controlla polling/health check dell’istanza. |
+| HTTP 429 | Limite di richieste: attendi il tempo indicato. I tuoi dispositivi condividono il limite della tua identità; pagine e health check hanno un budget separato. |
 | Invio non confermato | Aggiorna l’elenco prima di ripetere: potrebbe essere già stato completato. |
 
 

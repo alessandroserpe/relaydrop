@@ -104,7 +104,8 @@ Usare UID/GID del proprietario dei bind mount evita di rendere il token leggibil
 | `PORT` | `8787` |
 | `RELAYDROP_MAX_STORAGE_BYTES` | `1073741824` |
 | `RELAYDROP_MAX_TRANSFERS` | `1000` |
-| `RELAYDROP_REQUESTS_PER_MINUTE` | `120`, globale e inclusivo di asset e health check |
+| `RELAYDROP_REQUESTS_PER_MINUTE` | `120` per identità, file con link valido o peer anonimo; asset/health separati |
+| `RELAYDROP_EMERGENCY_REQUESTS_PER_MINUTE` | `6000` richieste ammesse per classe; budget separati fra autenticati, link validi, anonimi e pagine/health |
 | `RELAYDROP_ALLOW_HTTP_LOCALHOST` | disabilitata; `1` solo per sviluppo HTTP locale |
 
 Il limite dei file, la quota, la durata e il numero di tentativi sono modificabili nella dashboard. I valori persistiti in control.json prevalgono sulle variabili di avvio. Concorrenza e tetto tecnico di circa 2 GiB restano vincoli di questa versione. Misurare la memoria sui telefoni prima di alzare i limiti. Il client richiede separatamente `--allow-http-localhost` per HTTP; non supporta HTTP remoto o bypass TLS.
@@ -116,7 +117,7 @@ Il limite dei file, la quota, la durata e il numero di tentativi sono modificabi
 - Contenuti `.part`, `.json.tmp` e blob orfani vengono rimossi al riavvio. Metadati invalidi fermano l’avvio: ispezionare con il servizio fermo, senza esporne il contenuto nei log.
 - Non salvare backup dei trasferimenti effimeri. Proteggere separatamente configurazione e credenziali. Uno storage ripristinato può reintrodurre contatori obsoleti.
 - Ruotare il token con un nuovo file e riavvio. I link esistenti hanno capability separate e non vengono revocati dalla rotazione.
-- Mantenere l’orologio sincronizzato. Monitorare spazio disponibile, log generici di errore e health check; non usare health check ad alta frequenza per non consumare il rate limit.
+- Mantenere l’orologio sincronizzato. Monitorare spazio disponibile, log generici di errore e health check; i controlli di stato condividono il budget delle pagine pubbliche, separato dalle API autenticate. Dietro il proxy, gli anonimi condividono il suo peer TCP; gli header inoltrati dal client non modificano i limiti.
 
 Prima di un’esposizione ampia: audit indipendente, protezione DDoS, token/quote per principal, test fisici iOS/Android e misure di carico. Questa versione assume un piccolo gruppo di uploader fidati.
 
