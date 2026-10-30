@@ -64,7 +64,7 @@ npm run check
 npm test
 ```
 
-49 automated tests passed on the development Mac and a Linux VPS with Node 24. Real iPhone tests confirmed cellular-network transfer, notifications with the app closed, opening/saving files, phone-photo transfer to Mac and delivery through the skill. The Node 22/24 Linux/macOS CI matrix reports its results in [GitHub Actions](https://github.com/alessandroserpe/relaydrop/actions/workflows/test.yml). Android, the new camera button, native drag-and-drop and large files on phones still need physical-device validation. See [validation notes](docs/VALIDATION.md).
+49 automated tests passed on the development Mac and in Linux/macOS CI with Node 22/24. Real iPhone tests confirmed cellular-network transfer, notifications with the app closed, opening/saving files, phone-photo transfer to Mac and delivery through the skill. The Node 22/24 Linux/macOS CI matrix reports its results in [GitHub Actions](https://github.com/alessandroserpe/relaydrop/actions/workflows/test.yml). Android, the new camera button, native drag-and-drop and large files on phones still need physical-device validation. See [validation notes](docs/VALIDATION.md).
 
 [MIT license](LICENSE) · [Contributing](CONTRIBUTING.md) · [Architecture and alternatives](docs/ARCHITECTURE.md)
 

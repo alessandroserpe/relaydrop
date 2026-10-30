@@ -88,6 +88,6 @@ npm run check
 npm test
 ```
 
-49 test automatici verificati sul Mac di sviluppo e su una VPS Linux con Node 24. Prova reale iPhone riuscita su rete cellulare: invio, avviso anche ad app chiusa, apertura e salvataggio; provati anche foto dal telefono verso Mac e invio tramite skill. La matrice CI verifica Node 22/24 su Linux/macOS e un job dedicato prova installazioni systemd e Docker da zero, trasferimento HTTPS e persistenza dopo riavvio; gli esiti sono disponibili in [GitHub Actions](https://github.com/alessandroserpe/relaydrop/actions/workflows/test.yml). Android, fotocamera del nuovo pulsante, trascinamento nativo e grandi file su telefoni restano da collaudare. [Dettagli delle verifiche](docs/VALIDATION.md).
+49 test automatici verificati sul Mac di sviluppo e nella CI Linux/macOS con Node 22/24. Prova reale iPhone riuscita su rete cellulare: invio, avviso anche ad app chiusa, apertura e salvataggio; provati anche foto dal telefono verso Mac e invio tramite skill. La matrice CI verifica Node 22/24 su Linux/macOS e un job dedicato prova installazioni systemd e Docker da zero, trasferimento HTTPS e persistenza dopo riavvio; gli esiti sono disponibili in [GitHub Actions](https://github.com/alessandroserpe/relaydrop/actions/workflows/test.yml). Android, fotocamera del nuovo pulsante, trascinamento nativo e grandi file su telefoni restano da collaudare. [Dettagli delle verifiche](docs/VALIDATION.md).
 
 [Contribuire](CONTRIBUTING.md) · [Licenza MIT](LICENSE) · [Alternative e trade-off](docs/ARCHITECTURE.md)
