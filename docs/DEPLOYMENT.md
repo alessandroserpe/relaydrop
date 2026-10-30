@@ -5,7 +5,16 @@ Guida generica a un’installazione self-hosted. È stata verificata anche una V
 ## Metodo consigliato: processo locale + Caddy
 
 1. Copiare la repository verificata in `/opt/relaydrop`, leggibile ma non modificabile dall’utente di servizio. Installare una versione LTS di Node dal canale ufficiale e verificare il suo percorso; l’unità d’esempio usa `/usr/bin/node`.
-   Eseguire `npm ci --omit=dev --ignore-scripts` nella directory del codice.
+   Su un nuovo host dedicato, dalla copia Git verificata (la destinazione deve essere nuova/vuota):
+
+   ```sh
+   sudo install -d -m 755 /opt/relaydrop
+   git archive HEAD | sudo tar -x -C /opt/relaydrop
+   cd /opt/relaydrop
+   sudo npm ci --omit=dev --ignore-scripts
+   ```
+
+   Il codice resta di proprietà amministrativa. Verificare `command -v node` e adattare `/usr/bin/node` nei comandi e nell’unità se necessario. Questi comandi presuppongono Node/npm già installati; non sostituiscono le istruzioni ufficiali per la propria distribuzione.
 2. Su un host Linux con systemd, crea un utente dedicato se non esiste. Poi prepara la directory privata e genera la credenziale amministrativa una sola volta:
 
    ```sh
@@ -28,13 +37,14 @@ Guida generica a un’installazione self-hosted. È stata verificata anche una V
 
    Sono comandi iniziali: non rigenerare token o chiavi VAPID durante gli aggiornamenti. Trasferisci il contenuto di `me-token` sui tuoi dispositivi tramite un gestore di password; copia `agent-token` soltanto sul mittente/agent autorizzato, con permessi 600. Il registro e `web-push.json` restano sul server. Per aggiungere altri utenti, ripeti `identity-add` con ID e percorsi nuovi, poi riavvia il servizio.
 
-   Copiare `deploy/relaydrop.service` in `/etc/systemd/system/relaydrop.service`. Sostituire il dominio in `RELAYDROP_URL`, verificare il percorso Node. L’unità include `RELAYDROP_WEB_PUSH_FILE`; se non vuoi gli avvisi, rimuovi quella riga. `StateDirectory` crea `/var/lib/relaydrop` con permessi 700.
-4. Adattare `deploy/Caddyfile` al proprio dominio e alla configurazione Caddy già presente. Verificare con `caddy validate --config /etc/caddy/Caddyfile` prima del reload. Il file usa HTTPS automatico e limita il corpo a 2 GiB. La quota effettiva applicativa è più bassa. [Reverse proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy), [limite del corpo](https://caddyserver.com/docs/caddyfile/directives/request_body).
+   Eseguire `sudo install -m 644 deploy/relaydrop.service /etc/systemd/system/relaydrop.service`. Sostituire il dominio in `RELAYDROP_URL`, verificare il percorso Node. L’unità include `RELAYDROP_WEB_PUSH_FILE`; se non vuoi gli avvisi, rimuovi quella riga. `StateDirectory` crea `/var/lib/relaydrop` con permessi 700.
+4. Se non è già presente un proxy, [installare Caddy con le istruzioni ufficiali della distribuzione](https://caddyserver.com/docs/install). Su un host nuovo dedicato copiare `deploy/Caddyfile` in `/etc/caddy/Caddyfile`; se esiste già una configurazione, integrare solo il blocco RelayDrop senza sovrascriverla. Adattare `deploy/Caddyfile` al proprio dominio e alla configurazione Caddy già presente. Verificare con `caddy validate --config /etc/caddy/Caddyfile` prima del reload. Il file usa HTTPS automatico e limita il corpo a 2 GiB. La quota effettiva applicativa è più bassa. [Reverse proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy), [limite del corpo](https://caddyserver.com/docs/caddyfile/directives/request_body).
 5. Avviare:
 
    ```sh
    sudo systemctl daemon-reload
    sudo systemctl enable --now relaydrop
+   sudo systemctl enable --now caddy
    sudo systemctl reload caddy
    ```
 
@@ -68,27 +78,39 @@ Per i limiti, accedi separatamente con il token amministrativo: vedrai **Imposta
 
 ## Container opzionale
 
-Docker non è necessario. Il Dockerfile fornito non contiene segreti e usa un utente non privilegiato. Per costruire: `docker build -t relaydrop:local .`.
+Docker non è necessario. Questo percorso alternativo richiede Git e Docker sul computer host; **Node/npm sul computer host non servono per il bootstrap o per avviare il servizio**. Il reverse proxy HTTPS deve essere già installato sullo stesso host. Il Dockerfile usa un utente non privilegiato.
 
-Esempio su host Linux, dalla repository, con Caddy sullo stesso host:
+Dalla cartella della repository, per una nuova installazione:
 
 ```sh
-node src/cli.mjs init --token-file .secrets/admin-token
-mkdir -m 700 data
+docker build -t relaydrop:local .
+sh deploy/bootstrap-container.sh relaydrop:local
+```
 
-docker run --rm --name relaydrop \
+Il secondo comando usa Node e le dipendenze **dentro l’immagine**. Crea `.secrets/` e `data/` con permessi 700; genera `admin-token`, `me-token`, `agent-token`, `identities.json` e `web-push.json` con permessi 600. Non stampa segreti e rifiuta una configurazione già esistente. Non rieseguirlo durante aggiornamenti o riavvii. Se un bootstrap si interrompe, controlla quali file sono stati creati prima di riprenderlo: non cancellare una configurazione già in uso.
+
+Conserva `admin-token` nel gestore di password; usa `me-token` sui dispositivi e `agent-token` sul mittente autorizzato. Le identità e VAPID sono incluse anche nel comando di avvio:
+
+```sh
+docker run --rm --name relaydrop --stop-timeout 20 \
   --user "$(id -u):$(id -g)" \
   --read-only --cap-drop ALL --security-opt no-new-privileges \
   --memory 256m --pids-limit 128 \
   -p 127.0.0.1:8787:8787 \
   -e RELAYDROP_URL=https://files.example.com \
   -e RELAYDROP_TOKEN_FILE=/run/secrets/admin-token \
-  -v "$PWD/.secrets/admin-token:/run/secrets/admin-token:ro" \
+  -e RELAYDROP_IDENTITIES_FILE=/run/secrets/identities.json \
+  -e RELAYDROP_WEB_PUSH_FILE=/run/secrets/web-push.json \
+  -v "$PWD/.secrets:/run/secrets:ro" \
   -v "$PWD/data:/data" \
   relaydrop:local
 ```
 
-Usare UID/GID del proprietario dei bind mount evita di rendere il token leggibile ad altri. L’immagine ascolta su tutte le interfacce **dentro** il container, ma la pubblicazione è solo su loopback dell’host. Non omettere `127.0.0.1` dalla mappatura. Non abilitare restart automatico finché non è stata definita una procedura per il lock dopo crash. Fissare un digest verificato dell’immagine base prima di un rilascio riproducibile; il tag d’esempio riceve aggiornamenti e non è immutabile.
+Sostituisci il dominio e configura il proxy come indicato sopra. Apri `/dashboard` con `me-token`, registra il browser e attiva gli avvisi. La coppia VAPID da sola non abilita le notifiche sul telefono: servono registrazione e consenso.
+
+Per fermare: `docker stop --time 20 relaydrop` da un altro terminale. Per ripartire esegui di nuovo **solo il comando di avvio**, usando le stesse directory. I dati e le credenziali restano nei bind mount anche se il container viene rimosso. Non aggiungere `--notify` agli invii finché almeno un dispositivo non ha attivato gli avvisi.
+
+Usare UID/GID del proprietario dei bind mount evita di rendere i segreti leggibili ad altri. L’immagine ascolta su tutte le interfacce dentro il container, ma la pubblicazione è solo su loopback dell’host. Non omettere `127.0.0.1`. Non abilitare restart automatico finché non è stata definita una procedura per il lock dopo crash. Il limite di memoria è un esempio per l’uso personale, non un dimensionamento per qualsiasi carico. Fissare un digest verificato dell’immagine base prima di un rilascio riproducibile.
 
 ## Configurazione
 
@@ -127,7 +149,7 @@ Conservare il token bootstrap e i dati esistenti; fermare il servizio prima di c
 
 La dashboard è `/dashboard`. Registrare i browser prima dei nuovi invii nominativi. Il registro identità è letto all’avvio: riavviare dopo aggiunte, revoche o modifiche ntfy. Il codice del relay non contiene né avvia Ollama; il motore AI sta sul mittente. [Guida AI/avvisi](LOCAL_AI_AND_NOTIFICATIONS.md).
 
-Per il container, montare anche il registro identità in sola lettura e impostare `RELAYDROP_IDENTITIES_FILE` se si usano più utenti; montare i file ntfy privati eventualmente referenziati dal registro. L’esempio container di base avvia solo il bootstrap admin.
+Il percorso container aggiornato monta registro identità e VAPID in sola lettura. Per configurazioni precedenti solo-admin, creare separatamente le identità mancanti e aggiungere i relativi mount/variabili, senza rigenerare la credenziale amministrativa. Eventuali file ntfy privati referenziati dal registro richiedono mount dedicati.
 
 ## Avvisi integrati e upgrade 0.3
 

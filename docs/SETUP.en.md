@@ -174,3 +174,36 @@ Under administrator **Impostazioni**, enable **Consenti file fino a una data sce
 The upload owner or admin can change retention under **Dettagli → Conservazione → Salva conservazione**. A recipient cannot extend someone else's upload. Expired/revoked/exhausted files cannot be revived. Disabling the setting does not delete existing retained files. No expiry is not a backup guarantee. Do not downgrade to 0.5 after creating records with null expiry/download limits.
 
 When adding a new browser, open RelayDrop on one that already reads the files. While visible, it shares encrypted file keys with new browsers of the same account, up to four files per refresh. For a few files, keep it open for about a minute and refresh the new device. No document re-upload or download attempt is required. This needs an existing readable browser; if every key and original link is lost, the relay cannot recover the content.
+
+
+## Docker alternative
+
+On a fresh host with Docker and an HTTPS reverse proxy, run from the source repository:
+
+```sh
+docker build -t relaydrop:local .
+sh deploy/bootstrap-container.sh relaydrop:local
+```
+
+Bootstrap runs **inside the image**, so Node/npm and `node_modules` on the host are not required. It creates private `.secrets/` and `data/` directories, administrator/personal/agent credentials, the identity registry and VAPID keys. It refuses an existing configuration and must not be rerun during upgrades. Save the credentials privately.
+
+```sh
+docker run --rm --name relaydrop --stop-timeout 20 \
+  --user "$(id -u):$(id -g)" \
+  --read-only --cap-drop ALL --security-opt no-new-privileges \
+  --memory 256m --pids-limit 128 \
+  -p 127.0.0.1:8787:8787 \
+  -e RELAYDROP_URL=https://files.example.com \
+  -e RELAYDROP_TOKEN_FILE=/run/secrets/admin-token \
+  -e RELAYDROP_IDENTITIES_FILE=/run/secrets/identities.json \
+  -e RELAYDROP_WEB_PUSH_FILE=/run/secrets/web-push.json \
+  -v "$PWD/.secrets:/run/secrets:ro" \
+  -v "$PWD/data:/data" \
+  relaydrop:local
+```
+
+Replace the domain and configure the HTTPS proxy. Log in with `me-token`, register each browser and grant notification permission. Stop with `docker stop --time 20 relaydrop`; restart using the same run command and directories. Keep existing credentials and VAPID keys. Crash recovery still requires checking the storage lock before restarting. The example memory limit is for a small personal installation, not a capacity guarantee.
+
+## Automated installation verification
+
+The `installation` GitHub Actions job uses a disposable Linux host. It checks a fresh systemd installation and a Docker installation, including bootstrap without host dependencies, verified HTTPS with an isolated local CA, role separation, encrypted upload/download, notification configuration, rate-limit isolation and session/file persistence across restarts. It does not obtain a public ACME certificate or send real phone notifications. The fixture refuses to run outside a GitHub-hosted Linux runner. Normal unit tests remain available locally through `npm test`.
