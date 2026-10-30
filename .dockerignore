@@ -1,0 +1,12 @@
+*
+!package.json
+!package-lock.json
+!scripts/
+!scripts/**
+!src/
+!src/**
+!public/
+!public/**
+
+!skills/
+!skills/**

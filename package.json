@@ -1,0 +1,22 @@
+{
+  "name": "relaydrop-mvp",
+  "version": "0.6.0",
+  "private": true,
+  "description": "Encrypted file inbox with named access, local summaries and opt-in notifications",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "relaydrop": "src/cli.mjs"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node scripts/check.mjs"
+  },
+  "dependencies": {
+    "web-push": "3.6.7"
+  }
+}

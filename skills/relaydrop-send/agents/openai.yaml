@@ -1,0 +1,6 @@
+interface:
+  display_name: "RelayDrop · Invia ai miei dispositivi"
+  short_description: "Invia file cifrati alla tua casella personale"
+  default_prompt: "Usa $relaydrop-send per inviarmi il file sui miei dispositivi."
+policy:
+  allow_implicit_invocation: true

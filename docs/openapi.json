@@ -1,0 +1,1237 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "RelayDrop private inbox",
+    "version": "0.6.0",
+    "description": "See API.md for RD01 encryption, browser key envelopes and exact role rules. Recipients may upload only to their own inbox with require-recipient enabled, and may revoke their own uploads."
+  },
+  "servers": [
+    {
+      "url": "https://files.example.com"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "IdentityToken": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "Session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "relaydrop_session"
+      },
+      "DownloadToken": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "See API.md for status codes. Interrupted streams may lack a JSON body.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "health",
+        "description": "HTTP availability, not a disk integrity check.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/session": {
+      "post": {
+        "operationId": "login",
+        "description": "Exchange identity bearer for an 8-hour session, or a rolling 90-day browser session with X-Remember-Device: 1.",
+        "security": [
+          {
+            "IdentityToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Remember-Device",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ]
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "logout",
+        "description": "Invalidate current session.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "sessionInfo",
+        "description": "Current browser remember preference and expiry, or null for bearer-only authentication. Renews an unexpired remembered cookie at most hourly.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "remember": {
+                      "type": "boolean"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "rememberBrowser",
+        "description": "Change remember preference for the current valid browser cookie; exact Origin required. False resets expiry to 8 hours, true to 90 days.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "remember"
+                ],
+                "properties": {
+                  "remember": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "operationId": "currentIdentity",
+        "description": "Current identity and role; no secrets.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/policy": {
+      "get": {
+        "operationId": "policy",
+        "description": "Public file, TTL and download limits.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/identities": {
+      "get": {
+        "operationId": "identities",
+        "description": "Role-filtered directory. Never returns hashes or notification credentials.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/settings": {
+      "get": {
+        "operationId": "settings",
+        "description": "Admin-only settings and storage usage.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateSettings",
+        "description": "Admin-only. Storage must be at least the file limit. Existing files are retained.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "maxFileBytes",
+                  "maxBytes",
+                  "maxTransfers",
+                  "maxTTL",
+                  "maxDownloads",
+                  "auditDays"
+                ],
+                "properties": {
+                  "maxFileBytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147479552
+                  },
+                  "maxBytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10995116277760
+                  },
+                  "maxTransfers": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                  },
+                  "maxTTL": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2592000
+                  },
+                  "maxDownloads": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000
+                  },
+                  "auditDays": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365
+                  },
+                  "allowRetention": {
+                    "type": "boolean",
+                    "description": "Default false. Allows chosen deadlines or no expiry, both without download-count limits. Disabling does not alter existing files. Omission preserves the current setting."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/devices": {
+      "get": {
+        "operationId": "devices",
+        "description": "Current user devices.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "registerDevice",
+        "description": "Register RSA-OAEP 2048 SHA-256 public key. Max four devices per identity.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "public_key"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "public_key": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/devices/{device_id}": {
+      "delete": {
+        "operationId": "removeDevice",
+        "description": "Owner or admin; does not erase keys already received.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16}$"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/recipient-devices/{recipient_id}": {
+      "get": {
+        "operationId": "recipientDevices",
+        "description": "Uploader/admin: own and recipient public keys.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "recipient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/events": {
+      "get": {
+        "operationId": "events",
+        "description": "Last 500 visible events; max 2000 retained globally, time retention applies.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/transfers": {
+      "get": {
+        "operationId": "listTransfers",
+        "description": "Available transfers, scoped by role. Names and summaries remain encrypted; key envelopes scoped to current identity.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "upload",
+        "description": "Encrypted upload by admin/uploader, or by a recipient to their own authenticated inbox. Optional sender device IDs exclude only their notifications, preserving the shared inbox.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Content-Length",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 36,
+              "maximum": 2147483648
+            }
+          },
+          {
+            "name": "X-Download-Token-SHA256",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          {
+            "name": "X-TTL-Seconds",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2592000
+            }
+          },
+          {
+            "name": "X-Max-Downloads",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          {
+            "name": "X-Recipient-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Require-Recipient",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          },
+          {
+            "name": "X-Notify",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          },
+          {
+            "name": "X-File-Metadata",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Base64url JSON of encrypted details and RSA device envelopes; API.md."
+            }
+          },
+          {
+            "name": "X-Sender-Device-Ids",
+            "in": "header",
+            "required": false,
+            "description": "Comma-separated IDs of up to four registered browsers belonging to the authenticated sender. Excludes their push subscriptions, not their access to the file.",
+            "schema": {
+              "type": "string",
+              "maxLength": 67
+            }
+          },
+          {
+            "name": "X-Keep",
+            "in": "header",
+            "required": false,
+            "description": "Keep until manual revocation; requires allowRetention. Mutually exclusive with X-Expires-At, X-TTL-Seconds and X-Max-Downloads.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          },
+          {
+            "name": "X-Expires-At",
+            "in": "header",
+            "required": false,
+            "description": "Future UTC ISO timestamp within maxTTL. Requires allowRetention; unlimited attempts. Cannot combine with X-Keep or TTL/download headers.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/transfers/{id}": {
+      "get": {
+        "operationId": "transferStatus",
+        "description": "Visible metadata; no plaintext content.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{32}$"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "revoke",
+        "description": "Uploader owner or admin. Already-started streams may finish.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{32}$"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "updateRetention",
+        "description": "Upload owner/admin only. Available files only; requires allowRetention. Null expiry keeps indefinitely; a date must be future and within maxTTL. Removes download limit, preserving counts and recording an audit event.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expires_at"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "expires_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/transfers/{id}/preview": {
+      "post": {
+        "operationId": "preview",
+        "description": "Download capability required. If recipient-bound, also requires recipient cookie or X-Identity-Token. Preview does not consume an attempt; download persists count before streaming.",
+        "security": [
+          {
+            "DownloadToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{32}$"
+            }
+          },
+          {
+            "name": "X-Identity-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/transfers/{id}/download": {
+      "post": {
+        "operationId": "download",
+        "description": "Download capability required. If recipient-bound, also requires recipient cookie or X-Identity-Token. Preview does not consume an attempt; download persists count before streaming.",
+        "security": [
+          {
+            "DownloadToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{32}$"
+            }
+          },
+          {
+            "name": "X-Identity-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/push/config": {
+      "get": {
+        "summary": "Own Web Push configuration and enrolled device IDs",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "enabled, public_key, devices; no endpoint secrets"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      }
+    },
+    "/v1/push/subscriptions": {
+      "post": {
+        "summary": "Enroll or renew push for own registered browser",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "device_id",
+                  "subscription"
+                ],
+                "properties": {
+                  "device_id": {
+                    "type": "string"
+                  },
+                  "subscription": {
+                    "type": "object",
+                    "required": [
+                      "endpoint",
+                      "keys"
+                    ],
+                    "properties": {
+                      "endpoint": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "keys": {
+                        "type": "object",
+                        "required": [
+                          "p256dh",
+                          "auth"
+                        ],
+                        "properties": {
+                          "p256dh": {
+                            "type": "string"
+                          },
+                          "auth": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "device_id and enabled"
+          },
+          "400": {
+            "description": "Invalid endpoint or keys"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Own device required"
+          },
+          "409": {
+            "description": "Endpoint already assigned"
+          },
+          "503": {
+            "description": "Web Push not configured"
+          }
+        }
+      }
+    },
+    "/v1/push/subscriptions/{device_id}": {
+      "delete": {
+        "summary": "Disable own browser push subscription",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription removed"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      }
+    },
+    "/v1/transfers/{id}/envelopes": {
+      "post": {
+        "operationId": "shareDeviceKeys",
+        "description": "Sender/recipient identity plus download capability. Add encrypted key envelopes for missing browsers of that same identity only. No count/expiry changes; expired/exhausted/revoked files unavailable. Idempotent; existing envelopes cannot be overwritten.",
+        "security": [
+          {
+            "IdentityToken": []
+          },
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{32}$"
+            }
+          },
+          {
+            "name": "X-Download-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            },
+            "description": "Secret file capability, never log."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "envelopes"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "envelopes": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "device_id",
+                        "box"
+                      ],
+                      "properties": {
+                        "device_id": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9_-]{16}$"
+                        },
+                        "box": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9_-]{342}$"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

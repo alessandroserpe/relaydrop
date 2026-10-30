@@ -1,0 +1,8 @@
+# Replace files.example.com with a domain pointing to this host.
+# No access log is enabled. Never log Authorization or request bodies.
+files.example.com {
+    request_body {
+        max_size 2GiB
+    }
+    reverse_proxy 127.0.0.1:8787
+}

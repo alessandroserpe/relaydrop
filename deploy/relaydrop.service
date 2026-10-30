@@ -1,0 +1,33 @@
+[Unit]
+Description=RelayDrop encrypted temporary file relay
+After=network.target
+
+[Service]
+Type=simple
+User=relaydrop
+Group=relaydrop
+WorkingDirectory=/opt/relaydrop
+ExecStart=/usr/bin/node /opt/relaydrop/src/server.mjs
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=8787
+Environment=RELAYDROP_URL=https://files.example.com
+Environment=RELAYDROP_TOKEN_FILE=/etc/relaydrop/admin-token
+Environment=RELAYDROP_IDENTITIES_FILE=/etc/relaydrop/identities.json
+Environment=RELAYDROP_WEB_PUSH_FILE=/etc/relaydrop/web-push.json
+Environment=RELAYDROP_DATA_DIR=/var/lib/relaydrop
+StateDirectory=relaydrop
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/relaydrop
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

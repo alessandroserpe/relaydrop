@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer"><title>RelayDrop · Ricevi un file</title>
+  <link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script>
+</head>
+<body>
+  <main>
+    <header><span class="mark" aria-hidden="true">↓</span><span>RelayDrop <small>progetto sperimentale</small></span></header>
+    <p class="eyebrow">UN FILE, DA QUALSIASI RETE</p>
+    <h1>Il tuo file.<br>Pronto quando sei tu.</h1>
+    <p class="intro">Ricevilo qui, senza installare un’app. Il contenuto viene decifrato nel tuo browser.</p>
+    <section aria-labelledby="file-heading">
+      <h2 id="file-heading">Trasferimento protetto</h2>
+      <p id="status" role="status" aria-live="polite">Apri il link completo ricevuto dal mittente.</p>
+      <button id="receive" hidden>Ricevi e decifra</button>
+      <a id="save" class="button" hidden>Salva il file</a>
+      <button id="share" class="secondary" hidden>Condividi o salva in File</button>
+      <p id="receiver-summary" hidden></p><form id="receiver-login" hidden><label for="receiver-token">Credenziale del destinatario</label><input id="receiver-token" type="password" autocomplete="off" required maxlength="43"><button type="submit">Accedi</button></form>
+      <p id="hint" class="hint">Il link è personale: chi lo possiede può scaricare il file, fino alla scadenza o al limite previsto.</p>
+    </section>
+    <footer><p><a href="/dashboard">Apri la casella privata</a></p>Su iPhone, dopo la decifratura, usa “Condividi o salva in File” oppure “Salva il file”. Tieni questa pagina aperta durante il trasferimento.</footer>
+  </main>
+</body>
+</html>
